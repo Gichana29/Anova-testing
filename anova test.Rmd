@@ -1,0 +1,203 @@
+---
+title: "Anova  test"
+author: "Joshua Gichana"
+date: "2022-12-03"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+**1. Required packages**
+
+```{r}
+library(ggplot2)
+library(ggpubr)
+library(broom)
+library(AICcmodavg)
+library(tidyverse)
+```
+
+**2. loading the data**
+
+```{r}
+crop.data <- read.csv('/cloud/project/crop.data.csv', header = TRUE , colClasses = c("factor", "factor", "factor", "numeric"))
+```
+
+**3. summary of the crop data**
+
+```{r}
+summary(crop.data)
+```
+
+**4. One way test**
+
+```{r}
+one.way <- aov(yield ~ fertilizer , data = crop.data)
+```
+
+**5. summary of the one way test**
+
+```{r}
+summary(one.way)
+```
+
+**6. Two anova test**
+
+```{r}
+two.way <- aov( yield ~ fertilizer  + density , data =  crop.data)
+```
+
+**7. summary of the two test**
+
+```{r}
+summary(two.way)
+```
+
+**8. checking interaction btwn independent variables**
+
+```{r}
+interaction <- aov( yield ~ fertilizer * density , data = crop.data)
+```
+
+**9. summary of the interaction**
+
+```{r}
+summary(interaction)
+```
+
+**10. adding a blocking variable**
+
+```{r}
+blocking <-  aov( yield ~ fertilizer + density + block , data = crop.data)
+```
+
+**11. summarizing the block model**
+
+```{r}
+summary(blocking)
+```
+
+**12. The best fit model using the akaike information criterion**
+
+```{r}
+library(AICcmodavg)
+
+model.set <- list(one.way, two.way , interaction , blocking)
+
+model.names <- c("one.way","two.way", "interaction", "blocking")
+
+aictab(model.set, modnames=model.names)
+```
+
+**14. Checking for homoscedacity ( common variance assumption) using diagnostic plots**
+
+```{r}
+par(mfrow = c(2,2)) # recreates a 2*2 plotting matrix
+plot(one.way)
+par(mfrow = c(1,1))
+```
+
+**15. Doing a post-hoc test** **we use the turkey's Honestly Significant Difference (Turkey's HSD) post hoc test for pairwise comparison**
+
+```{r}
+tukey.two.way <- TukeyHSD(two.way)
+
+tukey.two.way
+```
+
+**16 find out which group means are statistically different from one another**
+
+```{r}
+tukey.plot.aov <- aov(yield ~ fertilizer:density , data = crop.data)
+```
+
+**18. plotting the results in a graph**
+
+-When plotting the results of a model, it is important to display:
+
+a)  the raw data
+
+b)  summary information, usually the mean and standard error of each group being compared
+
+c)  letters or symbols above each group being compared to indicate the groupwise differences.
+
+```{r}
+tukey.plot.test <- TukeyHSD(tukey.plot.aov)
+plot(tukey.plot.test , las = 1)
+```
+
+**19. making a dataframe with group labels**
+
+```{r}
+mean.yield.data <- crop.data %>% 
+  group_by(fertilizer , density) %>% 
+  summarize(yield  = mean(yield))
+
+# adding labels
+ 
+mean.yield.data$group <- c("a","b","b","b","b","c")
+
+mean.yield.data
+```
+
+**a) plot raw data**
+
+```{r}
+two.way.plot <- ggplot(data = crop.data ,mapping = aes(x = density , y = yield , group = fertilizer))+
+  geom_point(cex = 1.5 , pch = 1.0 , position = position_jitter(w = 0.1 , h = 0))
+
+two.way.plot
+```
+
+**b) Add means and standard errors to the graphs**
+
+```{r}
+two.way.plot <- two.way.plot +
+  stat_summary(fun.data  = 'mean_se' , geom = 'errorbar' , width = 0.2)+
+  stat_summary(fun.data = 'mean_se' , geom = 'pointrange')+
+  geom_point(data = mean.yield.data , mapping = aes(x = density , y = yield))
+
+two.way.plot
+```
+
+This is very hard to read, since all of the different groupings for fertilizer type are stacked on top of one another .we need to split the data.
+
+**split up the data**
+
+```{r}
+two.way.plot <- two.way.plot +
+  geom_text(data = mean.yield.data ,label = mean.yield.data$group , vjust = -8 , size = 5)+
+  facet_wrap(~ fertilizer)
+
+two.way.plot
+```
+
+**20. making the graph ready for publication**
+
+```{r}
+two.way.plot <- two.way.plot +
+  theme_classic2() +
+  labs(title = "Crop yield in response to fertilizer mix and planting density",
+      x = "Planting density (1=low density, 2=high density)",
+      y = "Yield (bushels per acre)")
+
+two.way.plot
+```
+
+**21. Reporting the results**
+
+In addition to a graph, it's important to state the results of the ANOVA test. Include:
+
+a) A brief description of the variables you tested
+
+b) The F value, degrees of freedom, and p values for each independent variable
+
+c) What the results mean.
+
+- We found a statistically-significant difference in average crop yield by both fertilizer type (*F*(2)=9.018, *p* \< 0.001) and by planting density (*F*(1)=15.316, *p* \< 0.001).
+
+- A Tukey post-hoc test revealed that fertilizer mix 3 resulted in a higher yield on average than fertilizer mix 1 (0.59 bushels/acre), and a higher yield on average than fertilizer mix 2 (0.42 bushels/acre). Planting density was also significant, with planting density 2 resulting in an higher yield on average of 0.46 bushels/acre over planting density 1.
+
+- A subsequent groupwise comparison showed the strongest yield gains at planting density 2, fertilizer mix 3, suggesting that this mix of treatments was most advantageous for crop growth under our experimental conditions.
