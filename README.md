@@ -1,6 +1,6 @@
 # Anova-testing
 
-In this project I  used crop data to check the significance of various variables on the final yield of crops .
+In this session, I  used crop data to check the significance of various variables on the final yield of crops .
 
 I used a 7 step procedure:
 
